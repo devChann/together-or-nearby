@@ -2,7 +2,7 @@
 
 Two phones at the same place at the same time don't make two friends hanging out. Colleagues share an office every weekday; strangers share a canteen. This project tells the two apart in real GPS data, and checks itself honestly.
 
-**Live page:** the inspector in `docs/` (GitHub Pages). Pick an encounter and watch both people move, meet and leave, next to the evidence behind the verdict.
+**Live page: [devchann.github.io/together-or-nearby](https://devchann.github.io/together-or-nearby/)** Pick an encounter and watch both people move, meet and leave, next to the evidence behind the verdict.
 
 ## Results
 
