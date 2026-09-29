@@ -7,6 +7,7 @@ encounter at such a spot is shown only as a coarse H3 hexagon (resolution 8, ~0.
 import json
 import math
 import pathlib
+from datetime import timezone
 
 import duckdb
 import h3
@@ -140,6 +141,8 @@ def main():
         e = dict(zip(cols, con.execute("select * from encounter_labels where encounter_id = ?", [eid]).fetchone()))
         shift = int(e["shift_b_s"])
         t0, t1 = e["t0_utc"], e["t1_utc"]
+        # DuckDB hands back naive UTC datetimes; .timestamp() would read them as local time.
+        t0s = t0.replace(tzinfo=timezone.utc).timestamp()
         loc_private = bool(near_home(np.array([e["lat"]]), np.array([e["lon"]]), homes)[0])
 
         tracks, stays_out, trips_out = {}, [], []
@@ -154,7 +157,7 @@ def main():
             last, rows = -10 ** 12, []
             for ti, ai, oi, k in zip(t, la, lo, keep):
                 if k and ti - last >= MIN_SPACING_S:
-                    rows.append([round(float(oi), 5), round(float(ai), 5), round((ti - t0.timestamp()) / 60, 1)])
+                    rows.append([round(float(oi), 5), round(float(ai), 5), round((ti - t0s) / 60, 1)])
                     last = ti
             tracks[party] = rows
 
@@ -167,8 +170,8 @@ def main():
                 private = bool(near_home(np.array([sla]), np.array([slo]), homes)[0])
                 stays_out.append({"who": party, "private": private,
                                   "lat": None if private else round(sla, 5), "lon": None if private else round(slo, 5),
-                                  "r": round(rad), "from": round((arr - t0.timestamp()) / 60, 1),
-                                  "to": round((lea - t0.timestamp()) / 60, 1)})
+                                  "r": round(rad), "from": round((arr - t0s) / 60, 1),
+                                  "to": round((lea - t0s) / 60, 1)})
             for mode, conf, s0, s1, km in con.execute("""
                 select mode, mode_confidence, epoch(start_utc)::BIGINT + ?, epoch(end_utc)::BIGINT + ?, km
                 from trips where user_id = ?
@@ -176,7 +179,7 @@ def main():
                   and end_utc > ? - to_seconds(?) - interval (?) minute""",
                     [sh, sh, uid, t1, sh, PAD_MIN, t0, sh, PAD_MIN]).fetchall():
                 trips_out.append({"who": party, "mode": mode, "conf": conf, "km": round(km, 1),
-                                  "from": round((s0 - t0.timestamp()) / 60, 1), "to": round((s1 - t0.timestamp()) / 60, 1)})
+                                  "from": round((s0 - t0s) / 60, 1), "to": round((s1 - t0s) / 60, 1)})
 
         evidence = {"a": [], "b": []}
         day0 = e["t0_local"].date()
@@ -208,6 +211,9 @@ def main():
                                           "crowd_typical", "others_here", "shared_fixes")})
 
     summary["showcase"] = index
+    # Build id: the page appends it to every data request, so a new export is never read from a stale cache.
+    import hashlib
+    summary["build"] = hashlib.sha1(json.dumps(index, default=str).encode()).hexdigest()[:10]
     (OUT / "summary.json").write_text(json.dumps(summary, separators=(",", ":"), default=str))
     size = sum(p.stat().st_size for p in OUT.rglob("*.json"))
     print(f"exported {len(index)} encounters, {size / 1e6:.1f} MB total")

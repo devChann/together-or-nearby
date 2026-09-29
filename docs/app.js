@@ -2,19 +2,22 @@
 (() => {
   const PAD = 120;                       // minutes shown before and after an encounter
   const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
+  const EMO = { meetup: "🤝", routine: "🏢", coincidence: "🎲", mixed: "🤷", visit: "🏠", duplicate: "🧬", unknown: "❔" };
   const HEAD = {
-    meetup: "Looks like a meetup", routine: "Routine, not a meetup", coincidence: "Probably a coincidence",
-    mixed: "Can't tell", visit: "Looks like a visit", duplicate: "Ids share copied data", unknown: "Not enough history",
+    meetup: "🤝 Looks like a meetup!", routine: "🏢 Just routine", coincidence: "🎲 Probably a coincidence",
+    mixed: "🤷 Can't tell", visit: "🏠 Looks like a visit", duplicate: "🧬 These ids share copied data", unknown: "❔ Not enough history",
   };
-  const PILL = { meetup: "Meetup", routine: "Routine", coincidence: "Coincidence", mixed: "Unclear",
-                 visit: "Visit", duplicate: "Copied data", unknown: "Unknown" };
+  const PILL = { meetup: "🤝 Meetup", routine: "🏢 Routine", coincidence: "🎲 Coincidence", mixed: "🤷 Unclear",
+                 visit: "🏠 Visit", duplicate: "🧬 Copied data", unknown: "❔ Unknown" };
+  const MODE_EMO = { walk: "🚶", bike: "🚲", bus: "🚌", car: "🚗", subway: "🚇", train: "🚆" };
+  const MODE_COL = { walk: "--visit", bike: "--a", bus: "--coincidence", car: "--b", subway: "--meetup", train: "--duplicate" };
   const FILTERS = [
-    { key: "meetup", label: "Meetups", test: e => e.kind === "real" && (e.label === "meetup" || e.label === "visit") },
-    { key: "routine", label: "Routine", test: e => e.kind === "real" && e.label === "routine" },
-    { key: "coincidence", label: "Coincidence", test: e => e.kind === "real" && e.label === "coincidence" },
-    { key: "mixed", label: "Unclear", test: e => e.kind === "real" && e.label === "mixed" },
-    { key: "duplicate", label: "Copied data", test: e => e.kind === "real" && e.label === "duplicate" },
-    { key: "fake", label: "Fake pairs", test: e => e.kind !== "real" },
+    { key: "meetup", label: "🤝 Meetups", test: e => e.kind === "real" && (e.label === "meetup" || e.label === "visit") },
+    { key: "routine", label: "🏢 Routine", test: e => e.kind === "real" && e.label === "routine" },
+    { key: "coincidence", label: "🎲 Coincidence", test: e => e.kind === "real" && e.label === "coincidence" },
+    { key: "mixed", label: "🤷 Unclear", test: e => e.kind === "real" && e.label === "mixed" },
+    { key: "duplicate", label: "🧬 Copied data", test: e => e.kind === "real" && e.label === "duplicate" },
+    { key: "fake", label: "👻 Fake pairs", test: e => e.kind !== "real" },
   ];
   const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -28,7 +31,8 @@
   const svgNS = "http://www.w3.org/2000/svg";
   const sv = (tag, attrs) => { const n = document.createElementNS(svgNS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); return n; };
 
-  const S = { summary: null, filter: "meetup", cache: new Map(), rec: null, t: 0, playing: false, raf: 0, map: null, ready: false };
+  const S = { summary: null, filter: "meetup", cache: new Map(), rec: null, t: 0, playing: false, raf: 0, map: null, ready: false,
+              mk: null, badge: null, shown: { a: false, b: false, badge: false } };
 
   // ---------- time ----------
   function localBase(start) {                    // "2009-04-03 20:50" as a wall-clock Date (UTC fields)
@@ -75,13 +79,15 @@
     const box = $("stats");
     const f = s.flagged, q = s.quality, m = s.modes.model, base = s.modes.baseline_median_speed;
     const cards = [
-      ["meetup", `${f.real.pct}%`, `of real encounters look like meetups (${fmt(f.real.judged)} judged)`],
-      ["fake", `${f.fake_test.pct}%`, `of encounters between fake pairs do. Held-back test, 95% range ${f.fake_test.ci95[0]}–${f.fake_test.ci95[1]}%`],
-      ["dup", `${(s.dataset.copies_removed / 1e6).toFixed(2)} M`, `GPS fixes were copies of another id's data. Removing them cut real encounters from ${fmt(q.first_run.encounters)} to ${fmt(s.dataset.encounters)}`],
-      ["", `${Math.round(m.accuracy * 100)}%`, `transport-mode accuracy on data sources it never saw (speed rule: ${Math.round(base.accuracy * 100)}%)`],
+      ["meetup", "💘", `${f.real.pct}%`, `of real encounters look like meetups (${fmt(f.real.judged)} judged)`],
+      ["fake", "👻", `${f.fake_test.pct}%`, `of encounters between fake pairs do. Held-back test, 95% range ${f.fake_test.ci95[0]}–${f.fake_test.ci95[1]}%`],
+      ["dup", "🧬", `${(s.dataset.copies_removed / 1e6).toFixed(2)} M`, `GPS fixes were copies of another id's data. Removing them cut real encounters from ${fmt(q.first_run.encounters)} to ${fmt(s.dataset.encounters)}`],
+      ["mode", "🚲", `${Math.round(m.accuracy * 100)}%`, `transport-mode accuracy on data sources it never saw (a speed rule gets ${Math.round(base.accuracy * 100)}%)`],
     ];
-    for (const [cls, big, small] of cards) {
-      const c = el("div", "stat " + cls); c.append(el("b", null, big), el("span", null, small)); box.append(c);
+    for (const [cls, icon, big, small] of cards) {
+      const c = el("div", "stat " + cls), top = el("div", "top");
+      top.append(el("i", null, icon), el("b", null, big));
+      c.append(top, el("span", null, small)); box.append(c);
     }
   }
 
@@ -101,13 +107,19 @@
   function renderList(selectFirst) {
     const f = FILTERS.find(x => x.key === S.filter);
     const items = S.summary.showcase.filter(f.test).sort((a, b) => b.minutes - a.minutes);
+    // Same start and length under several pairs = one group of three or more, not a duplicate.
+    const seen = {};
+    for (const e of S.summary.showcase) if (e.kind === "real") { const k = e.start + "|" + e.minutes; seen[k] = (seen[k] || 0) + 1; }
     const ol = $("items"); ol.textContent = "";
     for (const e of items) {
       const li = el("li", "item"); li.tabIndex = 0; li.dataset.id = e.id;
       const r1 = el("div", "row1");
-      r1.append(el("span", "who", `${id3(e.a)} & ${id3(e.b)}`));
+      const who = el("span", "who");
+      who.append(el("i", "dot a"), document.createTextNode(` ${id3(e.a)} `), el("i", "dot b"), document.createTextNode(` ${id3(e.b)}`));
+      r1.append(who);
       const pills = el("span");
-      if (e.kind !== "real") pills.append(el("span", "pill fake", "fake"), document.createTextNode(" "));
+      if (e.kind !== "real") pills.append(el("span", "pill fake", "👻"), document.createTextNode(" "));
+      if (e.kind === "real" && seen[e.start + "|" + e.minutes] > 1) pills.append(el("span", "pill group", "👥 group"), document.createTextNode(" "));
       pills.append(el("span", "pill " + e.label, PILL[e.label]));
       r1.append(pills);
       li.append(r1, el("span", "meta", `${listDate(e)} · ${dur(e.minutes)}`));
@@ -136,7 +148,7 @@
     S.map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     S.map.on("load", () => {
       const empty = { type: "FeatureCollection", features: [] };
-      for (const src of ["spot", "stays", "fullA", "fullB", "trailA", "trailB", "pos"]) S.map.addSource(src, { type: "geojson", data: empty });
+      for (const src of ["spot", "stays", "fullA", "fullB", "trailA", "trailB"]) S.map.addSource(src, { type: "geojson", data: empty });
       const A = css("--a"), B = css("--b"), M = css("--meetup");
       const who = ["match", ["get", "who"], "a", A, "b", B, "#888"];
       S.map.addLayer({ id: "spot-fill", type: "fill", source: "spot", paint: { "fill-color": M, "fill-opacity": 0.08 } });
@@ -146,12 +158,13 @@
       S.map.addLayer({ id: "fullA", type: "line", source: "fullA", paint: { "line-color": A, "line-width": 2, "line-opacity": 0.22 } });
       S.map.addLayer({ id: "fullB", type: "line", source: "fullB", paint: { "line-color": B, "line-width": 2, "line-opacity": 0.22 } });
       S.map.addLayer({ id: "trailA", type: "line", source: "trailA", layout: { "line-cap": "round", "line-join": "round" },
-                       paint: { "line-color": A, "line-width": 3.5, "line-opacity": 0.9 } });
+                       paint: { "line-color": A, "line-width": 4.5, "line-opacity": 0.95 } });
       S.map.addLayer({ id: "trailB", type: "line", source: "trailB", layout: { "line-cap": "round", "line-join": "round" },
-                       paint: { "line-color": B, "line-width": 3.5, "line-opacity": 0.9 } });
-      S.map.addLayer({ id: "pos", type: "circle", source: "pos", paint: {
-        "circle-radius": 7, "circle-color": who, "circle-stroke-color": "#fff", "circle-stroke-width": 2,
-        "circle-opacity": ["case", ["get", "stale"], 0.45, 1], "circle-stroke-opacity": ["case", ["get", "stale"], 0.45, 1] } });
+                       paint: { "line-color": B, "line-width": 4.5, "line-opacity": 0.95 } });
+      const avatar = w => { const d = el("div", "avatar " + w, w.toUpperCase()); return new maplibregl.Marker({ element: d }); };
+      S.mk = { a: avatar("a"), b: avatar("b") };
+      const wrap = el("div", "together-pin"); wrap.append(el("span", "together", "🤝"));   // MapLibre owns the outer transform
+      S.badge = new maplibregl.Marker({ element: wrap, offset: [0, -26] });
       S.ready = true;
       if (S.rec) drawMap(S.rec, true);
     });
@@ -166,13 +179,14 @@
       type: "Feature", properties: { who: s.who }, geometry: { type: "Polygon", coordinates: [circle(s.lon, s.lat, Math.max(s.r, 40))] } })) });
     S.map.getSource("fullA").setData(splitLines(rec.tracks.a));
     S.map.getSource("fullB").setData(splitLines(rec.tracks.b));
+    S.badge.getElement().firstChild.textContent = rec.kind !== "real" && (rec.label === "meetup" || rec.label === "visit") ? "🚨" : EMO[rec.label];
     if (fit) {
       // Frame the encounter: the spot plus fixes from 30 min either side that stay within 2.5 km of it.
       const [cx, cy] = rec.center, b = new maplibregl.LngLatBounds();
       const near = p => Math.hypot((p[0] - cx) * 111320 * Math.cos((cy * Math.PI) / 180), (p[1] - cy) * 110540) < 2500;
       for (const p of rec.tracks.a.concat(rec.tracks.b)) if (p[2] >= -30 && p[2] <= rec.minutes + 30 && near(p)) b.extend([p[0], p[1]]);
       for (const c of spot.geometry.coordinates[0]) b.extend(c);
-      S.map.fitBounds(b, { padding: { top: 60, bottom: 30, left: 30, right: 30 }, maxZoom: 16, duration: 700 });
+      S.map.fitBounds(b, { padding: { top: 100, bottom: 40, left: 40, right: 40 }, maxZoom: 16, duration: 700 });
     }
     update();
   }
@@ -189,13 +203,20 @@
     if (S.ready) {
       S.map.getSource("trailA").setData(splitLines(rec.tracks.a, S.t));
       S.map.getSource("trailB").setData(splitLines(rec.tracks.b, S.t));
-      const feats = [];
       for (const [who, pts] of [["a", rec.tracks.a], ["b", rec.tracks.b]]) {
-        const i = lastAt(pts, S.t);
-        if (i >= 0) feats.push({ type: "Feature", properties: { who, stale: S.t - pts[i][2] > 10 },
-                                 geometry: { type: "Point", coordinates: [pts[i][0], pts[i][1]] } });
+        const i = lastAt(pts, S.t), m = S.mk[who];
+        if (i >= 0) {
+          m.setLngLat([pts[i][0], pts[i][1]]);
+          m.getElement().classList.toggle("stale", S.t - pts[i][2] > 10);
+          if (!S.shown[who]) { m.addTo(S.map); S.shown[who] = true; }
+        } else if (S.shown[who]) { m.remove(); S.shown[who] = false; }
       }
-      S.map.getSource("pos").setData({ type: "FeatureCollection", features: feats });
+      const inside = S.t >= 0 && S.t <= rec.minutes;
+      if (inside && !S.shown.badge) { S.badge.setLngLat(rec.center).addTo(S.map); S.shown.badge = true; }
+      if (!inside && S.shown.badge) { S.badge.remove(); S.shown.badge = false; }
+      const now = $("now");
+      now.hidden = !inside;
+      now.textContent = rec.label === "meetup" || rec.label === "visit" ? "🤝 together" : "📍 same spot";
     }
     const cur = $("lanes").querySelector(".cursor");
     if (cur) { const x = xOf(S.t); cur.setAttribute("x1", x); cur.setAttribute("x2", x); }
@@ -226,7 +247,7 @@
     if (!S.playing) { cancelAnimationFrame(S.raf); return; }
     if (S.t >= S.rec.minutes + PAD - 1) S.t = -PAD;
     const span = S.rec.minutes + 2 * PAD, perSec = span / 22;       // whole window in about 22 seconds
-    $("speedlabel").textContent = `${Math.round(perSec)} min per second`;
+    $("speedlabel").textContent = `⏩ ${Math.round(perSec)} min per second`;
     let last = performance.now();
     const step = now => {
       if (!S.playing) return;
@@ -240,7 +261,7 @@
   // ---------- evidence ----------
   function strip(rec, who) {
     const row = el("div", "strip");
-    row.append(el("span", "tag", who.toUpperCase()));
+    row.append(el("span", "tag " + who, who.toUpperCase()));
     const s = sv("svg", { viewBox: "0 0 300 16", preserveAspectRatio: "none" });
     const x = d => ((d + 42) / 84) * 296 + 2;
     s.append(sv("line", { x1: x(0), x2: x(0), y1: 0, y2: 16, stroke: css("--meetup"), "stroke-width": 2 }));
@@ -266,10 +287,10 @@
 
     const v = el("div", "verdict");
     const pills = el("div");
-    if (fake) pills.append(el("span", "pill fake", `fake pair, B shifted ${rec.shift_days} days`), document.createTextNode(" "));
+    if (fake) pills.append(el("span", "pill fake", `👻 fake pair · B shifted ${rec.shift_days} days`), document.createTextNode(" "));
     pills.append(el("span", "pill " + rec.label, PILL[rec.label]));
     v.append(pills);
-    v.append(el("div", "headline", fake ? (flagged ? "False alarm" : "Correctly not a meetup") : HEAD[rec.label]));
+    v.append(el("div", "headline", fake ? (flagged ? "🚨 False alarm" : "✅ Correctly not a meetup") : HEAD[rec.label]));
     v.append(el("div", "sub", `${A} (A) and ${B} (B) · ${clockText(rec, 0)}–${rec.end} · ${dur(rec.minutes)} within ${P.together_radius_m} m`));
     box.append(v);
 
@@ -285,31 +306,31 @@
       box.append(el("p", "note", "This spot is within 300 m of someone's home, so it is shown as a hexagon of about 0.7 km² and GPS points near it are hidden."));
     }
 
-    const q1 = el("div", "q"); q1.append(el("h4", null, "Are they usually here at this time?"));
+    const q1 = el("div", "q"); q1.append(el("h4", null, "🔁 Are they usually here at this time?"));
     q1.append(strip(rec, "a"), strip(rec, "b"));
     const ticks = el("div", "ticks"); ["−6 wk", "this day", "+6 wk"].forEach(t => ticks.append(el("span", null, t))); q1.append(ticks);
     q1.append(el("p", "ans", `${rateLine(rec.a, rec.a_days, "A")} ${rateLine(rec.b, rec.b_days, "B")}`));
     q1.append(el("p", "sub note", "Comparable days: same kind (weekday or weekend) within six weeks. Filled dot: here at this time. Grey: recording, but elsewhere. Hollow: phone off."));
     box.append(q1);
 
-    const q2 = el("div", "q"); q2.append(el("h4", null, "Did they arrive and leave together?"));
+    const q2 = el("div", "q"); q2.append(el("h4", null, "🚪 Did they arrive and leave together?"));
     const ans2 = el("p", "ans");
     const g = P.together_gap_minutes;
-    const bit = (word, m) => { const s = el("span", m <= g ? "yes" : "no", `${m <= g ? "✓" : "✗"} ${word} ${dur(m)} apart`); return s; };
+    const bit = (word, m) => el("span", m <= g ? "yes" : "no", `${m <= g ? "✅" : "❌"} ${word} ${dur(m)} apart`);
     ans2.append(bit("Arrived", rec.arrive_gap), document.createTextNode("   "), bit("Left", rec.leave_gap));
     q2.append(ans2);
     box.append(q2);
 
-    const q3 = el("div", "q"); q3.append(el("h4", null, "Is the spot usually busy at this hour?"));
+    const q3 = el("div", "q"); q3.append(el("h4", null, "👥 Is the spot usually busy at this hour?"));
     q3.append(el("p", "ans", rec.crowd_typical === 0
       ? `Usually empty at this hour: nobody else in the dataset was here at this time on comparable days. ${rec.others_here} other people ever stop here.`
       : `${rec.crowd_typical} other ${rec.crowd_typical === 1 ? "person is" : "people are"} seen here at this hour on comparable days; ${rec.others_here} ever stop here.`));
     box.append(q3);
 
     if (rec.trips.length) {
-      const q4 = el("div", "q"); q4.append(el("h4", null, "Trips around it (predicted mode)"));
+      const q4 = el("div", "q"); q4.append(el("h4", null, "🧭 Trips around it (predicted mode)"));
       const t = el("div", "trips");
-      for (const tr of rec.trips.slice(0, 12)) t.append(el("span", "trip", `${tr.who.toUpperCase()} · ${tr.mode} · ${tr.km} km`));
+      for (const tr of rec.trips.slice(0, 12)) t.append(el("span", "trip", `${tr.who.toUpperCase()} ${MODE_EMO[tr.mode] || ""} ${tr.mode} · ${tr.km} km`));
       q4.append(t); box.append(q4);
     }
   }
@@ -318,25 +339,25 @@
   async function select(id) {
     if (S.playing) play();
     let rec = S.cache.get(id);
-    if (!rec) { rec = await fetch(`data/enc/${id}.json`).then(r => r.json()); S.cache.set(id, rec); }
+    if (!rec) { rec = await fetch(`data/enc/${id}.json?b=${S.summary.build}`).then(r => r.json()); S.cache.set(id, rec); }
     S.rec = rec;
     const sc = $("scrub"); sc.min = -PAD; sc.max = rec.minutes + PAD; sc.value = 0; S.t = 0;
-    $("speedlabel").textContent = "";
+    $("speedlabel").textContent = "press play ✨";
     markCurrent(); renderEvidence(rec); drawLanes(rec); drawMap(rec, true);
     const lg = $("legend"); lg.textContent = "";
     for (const [who, name] of [["--a", `A ${id3(rec.a)}`], ["--b", `B ${id3(rec.b)}`]]) {
       const s = el("span"); const sw = el("i", "sw"); sw.style.background = css(who); s.append(sw, document.createTextNode(name)); lg.append(s);
     }
     const sp = el("span"); const sw = el("i", "sw"); sw.style.background = "transparent"; sw.style.border = `2px dashed ${css("--meetup")}`;
-    sp.append(sw, document.createTextNode(rec.private ? "Encounter (generalised)" : "Encounter spot, 150 m")); lg.append(sp);
+    sp.append(sw, document.createTextNode(rec.private ? "📍 encounter (blurred)" : "📍 encounter spot, 150 m")); lg.append(sp);
   }
 
   // ---------- charts ----------
   function renderCalib(s) {
     const box = $("calib"); const wrap = el("div", "bars");
-    const order = [["meetup", "--meetup", "Meetup or visit"], ["coincidence", "--coincidence", "Coincidence"],
-                   ["routine", "--routine", "Routine"], ["mixed", "--mixed", "Unclear"]];
-    const rows = [["real", "Real pairs"], ["fake", "Fake, 5-week shift (design)"], ["fake_test", "Fake, 9-week shift (held back)"]];
+    const order = [["meetup", "--meetup", "🤝 Meetup or visit"], ["coincidence", "--coincidence", "🎲 Coincidence"],
+                   ["routine", "--routine", "🏢 Routine"], ["mixed", "--mixed", "🤷 Unclear"]];
+    const rows = [["real", "💞 Real pairs"], ["fake", "👻 Fake, 5-week shift"], ["fake_test", "🔐 Fake, 9-week, held back"]];
     for (const [kind, name] of rows) {
       const c = s.calibration[kind] || {};
       const r = el("div", "barrow"); r.append(el("span", "lab", name));
@@ -382,7 +403,7 @@
   }
   function renderHeats(s) {
     const box = $("heats");
-    for (const [lab, color, name] of [["routine", "--routine", "Routine"], ["meetup", "--meetup", "Meetups"], ["coincidence", "--coincidence", "Coincidences"]]) {
+    for (const [lab, color, name] of [["routine", "--routine", "🏢 Routine"], ["meetup", "--meetup", "🤝 Meetups"], ["coincidence", "--coincidence", "🎲 Coincidences"]]) {
       const t = s.timing[lab]; if (!t) continue;
       const d = el("div", "heat");
       d.append(el("h4", null, `${name}: ${t.weekday_9_17}% weekday 09–17, ${t.weekend}% weekend, median ${dur(t.median_min)}`));
@@ -398,8 +419,8 @@
     top.append(el("b", null, `${(m.model.accuracy * 100).toFixed(1)}%`), document.createTextNode(` accuracy, macro F1 ${m.model.macro_f1.toFixed(2)}. A median-speed rule gets ${(m.baseline_median_speed.accuracy * 100).toFixed(1)}% and ${m.baseline_median_speed.macro_f1.toFixed(2)}.`));
     const wrap = el("div", "bars");
     for (const [mode, f1] of Object.entries(m.model.f1_by_mode)) {
-      const r = el("div", "barrow"); r.append(el("span", "lab", mode));
-      const tr = el("div", "track"); const i = el("i"); i.style.width = f1 * 100 + "%"; i.style.background = css("--a"); tr.append(i);
+      const r = el("div", "barrow"); r.append(el("span", "lab", `${MODE_EMO[mode]} ${mode}`));
+      const tr = el("div", "track"); const i = el("i"); i.style.width = f1 * 100 + "%"; i.style.background = css(MODE_COL[mode]); tr.append(i);
       r.append(tr, el("span", "val", `F1 ${f1.toFixed(2)} · n ${fmt(m.class_counts[mode])}`)); wrap.append(r);
     }
     box.append(top, wrap, el("p", "sub", `Split by person instead of by data source, the same model scores ${(s.quality.mode_accuracy_grouped_by_user * 100).toFixed(1)}%: copies of one device's trips sat on both sides of the split. Car against bus is the hard pair, as in the published work on this dataset.`));
@@ -418,17 +439,17 @@
   function renderHow(s) {
     const d = s.dataset, P = s.params;
     const steps = [
-      ["Ingest", `DuckDB reads every raw <code>.plt</code> file straight into Parquet: ${fmt(d.points)} clean fixes from ${d.users} people.`],
-      ["Clean", `dbt staging models: drop impossible coordinates and GPS spikes (faster than 250 km/h both in and out), then keep each fix copied across ids once. ${(d.copies_removed / 1e6).toFixed(2)} M copies removed.`],
-      ["Stays", `dbt Python model with numba: points within ${P.stay_radius_m} m for ${P.stay_min_minutes}+ min, bridging GPS gaps indoors. ${fmt(d.stays)} stays.`],
-      ["Places", `DBSCAN (100 m) over each person's stays: ${fmt(d.places)} places. Home is where the night is spent; used only to hide it.`],
-      ["Encounters", `Stays within ${P.together_radius_m} m overlapping ${P.together_min_minutes}+ min, found with a DuckDB range join. Fake pairs are the same join with one side shifted by whole weeks.`],
-      ["Routine test", `For each person, every comparable day within ${P.routine_window_days} days when the phone was recording: here at this time or not? Busyness via H3 cells; arrive and leave gaps from the stays.`],
-      ["Modes", "Gradient boosting on 15 per-trip features, cross-validated by data source, then applied to every trip between stays."],
-      ["Publish", `Privacy filter, then static JSON for this page. The dbt project has 16 models and 8 data tests.`],
+      ["📥", "Ingest", `DuckDB reads every raw <code>.plt</code> file straight into Parquet: ${fmt(d.points)} clean fixes from ${d.users} people.`],
+      ["🧹", "Clean", `dbt staging models: drop impossible coordinates and GPS spikes (faster than 250 km/h both in and out), then keep each fix copied across ids once. ${(d.copies_removed / 1e6).toFixed(2)} M copies removed.`],
+      ["⏸️", "Stays", `dbt Python model with numba: points within ${P.stay_radius_m} m for ${P.stay_min_minutes}+ min, bridging GPS gaps indoors. ${fmt(d.stays)} stays.`],
+      ["🗺️", "Places", `DBSCAN (100 m) over each person's stays: ${fmt(d.places)} places. Home is where the night is spent; used only to hide it.`],
+      ["👥", "Encounters", `Stays within ${P.together_radius_m} m overlapping ${P.together_min_minutes}+ min, found with a DuckDB range join. Fake pairs are the same join with one side shifted by whole weeks.`],
+      ["🔁", "Routine test", `For each person, every comparable day within ${P.routine_window_days} days when the phone was recording: here at this time or not? Busyness via H3 cells; arrive and leave gaps from the stays.`],
+      ["🚦", "Modes", "Gradient boosting on 15 per-trip features, cross-validated by data source, then applied to every trip between stays."],
+      ["🚀", "Publish", `Privacy filter, then static JSON for this page. The dbt project has 16 models and 8 data tests.`],
     ];
     const ol = $("steps");
-    for (const [b, text] of steps) { const li = el("li"); li.append(el("b", null, b)); const sp = el("span"); sp.innerHTML = text; li.append(sp); ol.append(li); }
+    for (const [icon, b, text] of steps) { const li = el("li"); li.append(el("span", "ic", icon), el("b", null, b)); const sp = el("span"); sp.innerHTML = text; li.append(sp); ol.append(li); }
     const unknown = s.calibration.real.unknown?.n || 0;
     const limits = [
       "GeoLife is mostly researchers and students around one Beijing district, 2007–2012. Phones sample differently today, far more often and in the background.",
@@ -449,7 +470,7 @@
 
   // ---------- boot ----------
   async function boot() {
-    S.summary = await fetch("data/summary.json").then(r => r.json());
+    S.summary = await fetch("data/summary.json", { cache: "no-cache" }).then(r => r.json());
     renderStats(S.summary);
     initMap();
     renderFilters();
