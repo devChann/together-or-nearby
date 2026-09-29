@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Together, or just nearby?</title>
+<meta name="description" content="Telling real meetups from coincidence in GPS data: a routine test, arrive-and-leave-together timing and place busyness, calibrated on fake pairs. Built on GeoLife (171 people, 22.6 million GPS fixes).">
+<meta property="og:title" content="Together, or just nearby?">
+<meta property="og:description" content="41% of real encounters look like meetups; 1.7% of encounters between fake pairs do. GeoLife GPS data, DuckDB, dbt, H3.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=JetBrains+Mono:wght@400;500&family=Public+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="page">
+
+  <header class="hero">
+    <p class="kicker">GeoLife · 171 people · 22.6 million GPS fixes · Beijing, 2007–2012</p>
+    <h1>Together, or just&nbsp;nearby?</h1>
+    <p class="lede">Two phones at the same place at the same time don't make two friends hanging out. Colleagues share an office every weekday; strangers share a canteen. This detector asks what a friends map needs to ask: was either of them there by routine, did they arrive and leave together, and is that spot usually busy at that hour?</p>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <section class="inspector" aria-label="Encounter inspector">
+    <aside class="list" aria-label="Encounters">
+      <div class="filters" id="filters" role="tablist"></div>
+      <ol class="items" id="items"></ol>
+    </aside>
+
+    <div class="stage">
+      <div id="map" role="img" aria-label="Map of the selected encounter"></div>
+      <div class="legend" id="legend"></div>
+      <div class="timebar">
+        <div class="timehead">
+          <button class="play" id="play" type="button" aria-label="Play">▶</button>
+          <span class="clock" id="clock">–</span>
+          <span class="speed" id="speedlabel"></span>
+        </div>
+        <input type="range" id="scrub" min="0" max="100" step="1" value="0" aria-label="Time">
+        <svg class="lanes" id="lanes" viewBox="0 0 600 64" preserveAspectRatio="none" aria-hidden="true"></svg>
+      </div>
+    </div>
+
+    <aside class="evidence" id="evidence" aria-live="polite"></aside>
+  </section>
+
+  <section class="band" id="works">
+    <div class="band-head">
+      <h2>Does it work?</h2>
+      <p>No one labelled which GeoLife encounters were meetups, so the test is built from the data itself. Shift one person of every pair by whole weeks and their weekly routines still line up, but any arrangement to meet no longer does. Every encounter between such fake pairs is, by construction, not a meetup. The rules were designed against a 5-week shift and are reported against a 9-week shift that was held back until the end.</p>
+    </div>
+    <div class="grid2">
+      <figure class="card">
+        <figcaption><h3>Share of encounters called a meetup</h3><p>Real pairs against fake pairs. Remaining encounters are routine, coincidence or unclear.</p></figcaption>
+        <div id="calib"></div>
+      </figure>
+      <figure class="card">
+        <figcaption><h3>What separates them</h3><p>Encounters where both people were somewhere they rarely are at that time.</p></figcaption>
+        <div id="signals"></div>
+      </figure>
+      <figure class="card wide">
+        <figcaption><h3>When encounters happen</h3><p>The detector never sees the clock, yet routine lands in weekday working hours and meetups spread into evenings and weekends. Beijing time.</p></figcaption>
+        <div class="heats" id="heats"></div>
+      </figure>
+      <figure class="card">
+        <figcaption><h3>Transport mode, on people it never saw</h3><p id="modes-cap"></p></figcaption>
+        <div id="modes"></div>
+      </figure>
+      <figure class="card">
+        <figcaption><h3>The result that was too good</h3><p id="quality-cap"></p></figcaption>
+        <div id="quality"></div>
+      </figure>
+    </div>
+  </section>
+
+  <section class="band" id="how">
+    <div class="band-head">
+      <h2>How it's built</h2>
+      <p>A reproducible pipeline: raw GeoLife files to Parquet with DuckDB, then dbt models (SQL plus two Python models) with data tests, then a static page. The whole run, from raw files to this page, takes about four minutes on a laptop.</p>
+    </div>
+    <ol class="steps" id="steps"></ol>
+    <div class="grid2">
+      <div class="card"><h3>Limits</h3><ul class="plain" id="limits"></ul></div>
+      <div class="card"><h3>Privacy</h3><ul class="plain" id="privacy"></ul></div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <p>Data: GeoLife GPS Trajectories 1.3, Microsoft Research Asia (Zheng et al., 2008–2010), used for non-commercial research. Base map © OpenStreetMap contributors, tiles by OpenFreeMap.</p>
+    <p>Built by Chann Isaac.</p>
+  </footer>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

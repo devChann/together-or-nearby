@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: stays
+    description: Places a person stopped, one row per visit.
+    config:
+      stay_radius_m: "{{ var('stay_radius_m') }}"
+      stay_min_minutes: "{{ var('stay_min_minutes') }}"
+      stay_max_gap_minutes: "{{ var('stay_max_gap_minutes') }}"
+    columns:
+      - name: stay_id
+        data_tests: [unique, not_null]
+      - name: minutes
+        data_tests:
+          - not_null
+  - name: stay_place
+    description: Which recurring place each stay belongs to (DBSCAN over one person's stays).
+    columns:
+      - name: stay_id
+        data_tests: [unique, not_null]

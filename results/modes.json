@@ -1,0 +1,90 @@
+{
+  "segments": 7943,
+  "users": 58,
+  "sources": 39,
+  "class_counts": {
+    "walk": 3081,
+    "bike": 1366,
+    "bus": 1675,
+    "car": 1173,
+    "subway": 506,
+    "train": 142
+  },
+  "model": {
+    "accuracy": 0.772,
+    "macro_f1": 0.695,
+    "f1_by_mode": {
+      "walk": 0.925,
+      "bike": 0.906,
+      "bus": 0.657,
+      "car": 0.395,
+      "subway": 0.604,
+      "train": 0.683
+    }
+  },
+  "baseline_median_speed": {
+    "accuracy": 0.617,
+    "macro_f1": 0.387
+  },
+  "confusion": {
+    "labels": [
+      "walk",
+      "bike",
+      "bus",
+      "car",
+      "subway",
+      "train"
+    ],
+    "matrix": [
+      [
+        2915,
+        62,
+        84,
+        7,
+        12,
+        1
+      ],
+      [
+        96,
+        1210,
+        50,
+        9,
+        1,
+        0
+      ],
+      [
+        112,
+        23,
+        1305,
+        221,
+        11,
+        3
+      ],
+      [
+        22,
+        7,
+        718,
+        367,
+        46,
+        13
+      ],
+      [
+        78,
+        3,
+        114,
+        56,
+        252,
+        3
+      ],
+      [
+        2,
+        0,
+        24,
+        26,
+        6,
+        84
+      ]
+    ]
+  },
+  "method": "HistGradientBoosting on 15 speed/stop/acceleration/turning features; 5-fold cross-validation grouped by data source (ids that share copied data form one source)"
+}

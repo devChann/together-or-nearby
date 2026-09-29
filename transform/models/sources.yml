@@ -1,0 +1,10 @@
+version: 2
+
+sources:
+  - name: geolife
+    description: GeoLife Trajectories 1.3 (Microsoft Research), loaded to Parquet by pipeline/ingest.py
+    meta:
+      external_location: "../data/lake/{name}.parquet"
+    tables:
+      - name: points_raw
+      - name: labels

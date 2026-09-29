@@ -1,0 +1,10 @@
+together_or_nearby:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('TON_DB', '../data/warehouse.duckdb') }}"
+      threads: 4
+      extensions:
+        - name: h3
+          repo: community

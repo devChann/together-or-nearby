@@ -1,0 +1,8 @@
+.venv/
+/data/
+transform/target/
+transform/logs/
+transform/dbt_packages/
+transform/.user.yml
+__pycache__/
+.DS_Store

@@ -1,0 +1,13 @@
+version: 2
+
+models:
+  - name: encounter_labels
+    columns:
+      - name: encounter_id
+        data_tests: [unique, not_null]
+      - name: label
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [routine, meetup, visit, coincidence, mixed, unknown, duplicate]
+  - name: calibration

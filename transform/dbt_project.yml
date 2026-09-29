@@ -1,0 +1,24 @@
+name: together_or_nearby
+version: "1.0.0"
+profile: together_or_nearby
+model-paths: ["models"]
+macro-paths: ["macros"]
+
+vars:
+  stay_radius_m: 200        # a stay: points within this distance of its first point...
+  stay_min_minutes: 20      # ...for at least this long
+  stay_max_gap_minutes: 360 # a stay may bridge a recording gap up to this long (GPS drops indoors)
+  together_radius_m: 150    # two stays count as "together" when their centres are this close...
+  together_min_minutes: 10  # ...and they overlap for at least this long
+  routine_window_days: 42   # how far either side to look for the same kind of day
+  fake_shift_days: 35       # calibration (design set): shift one side of every pair by whole weeks
+  fake_test_shift_days: 63  # calibration (held-back set): a different whole-week shift, used only to report
+  min_days_observed: 3      # need this many comparable recorded days per person to judge
+  usually_here: 0.5         # routine: there on at least half of comparable days
+  rarely_here: 0.25         # unusual: there on fewer than a quarter of them
+  private_max_others: 2     # a place at most this many other people stop at counts as private
+  together_gap_minutes: 10  # arrived (or left) together: within this many minutes of each other
+
+models:
+  together_or_nearby:
+    +materialized: table
