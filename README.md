@@ -79,6 +79,10 @@ curl -L -o data/raw/geolife.zip "https://download.microsoft.com/download/F/4/8/F
 python3 -m http.server --directory docs 8123
 ```
 
+## Author
+
+Built by **Chann Isaac**, Lead Geospatial Engineer in Nairobi: ten years of turning raw location data into products. [LinkedIn](https://www.linkedin.com/in/chann-isaac-19b403145/) · [GitHub](https://github.com/devChann)
+
 ## Credits
 
 GeoLife GPS Trajectories 1.3, Microsoft Research Asia (Zheng, Xie, Ma and others, 2008–2010), used for non-commercial research. Stay-point detection after Li et al. (2008). Base map © OpenStreetMap contributors, tiles by OpenFreeMap.

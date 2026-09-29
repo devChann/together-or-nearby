@@ -1,0 +1,16 @@
+# Together, or just nearby?
+
+> A project by Chann Isaac (Lead Geospatial Engineer, Nairobi) that tells real meetups from coincidence in GPS data. On GeoLife GPS Trajectories 1.3 (171 people, 22.6 million GPS fixes, Beijing 2007–2012), it calls 41% of real encounters meetups and 1.7% of encounters between fake pairs in a held-back test.
+
+For every encounter (two people staying within 150 m of each other for at least 10 minutes) it asks three questions: was either person there by routine, did they arrive and leave together, and is the spot usually busy at that hour? With no labelled meetups in the data, it is validated on fake pairs: one person of each real pair is shifted by whole weeks, so weekly routines still line up but plans to meet do not. Rules were designed on a 5-week shift and scored once on a 9-week shift kept back until the end.
+
+While building it, the author found 1.55 million GPS fixes copied between GeoLife user IDs. They had inflated the first results (meetups 65% before the fix, 41% after; transport-mode accuracy 81% before, 77% after grouping cross-validation by data source).
+
+Stack: Python, DuckDB, dbt (16 models, 8 data tests), numba stay-point detection, DBSCAN, H3, scikit-learn, MapLibre GL. The full pipeline runs in about four minutes on a laptop.
+
+## Links
+
+- [Live page](https://devchann.github.io/together-or-nearby/): replay any encounter on a map, with the evidence behind each verdict
+- [Code and method](https://github.com/devChann/together-or-nearby): README with results, method, limits and how to run it
+- [Chann Isaac on LinkedIn](https://www.linkedin.com/in/chann-isaac-19b403145/)
+- [Chann Isaac on GitHub](https://github.com/devChann)
